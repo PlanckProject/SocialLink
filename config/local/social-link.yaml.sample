@@ -1,0 +1,16 @@
+application:
+  mode: single
+
+admin:
+  username: admin
+  email: admin@example.com
+  password: ${ADMIN_PASSWORD}
+  display_name: Your Name
+
+uploads:
+  max_mb: 8
+
+themes:
+  seed_file: /app/theme.json
+  max_preset_per_user: 3
+  max_custom_per_user: 5

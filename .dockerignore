@@ -1,0 +1,9 @@
+.git
+.github
+.copilot
+api/target
+api/.env*
+ui/node_modules
+ui/.nuxt
+ui/.output
+**/*.log

@@ -1,0 +1,77 @@
+name: sociallink
+
+services:
+  mongo:
+    image: docker.io/library/mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Containerfile
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      SOCIAL_LINK_ENV: ${SOCIAL_LINK_ENV:-local}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-please}
+      IP_HASH_SALT: ${IP_HASH_SALT:-change-me-too}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      JWT_TTL_HOURS: ${JWT_TTL_HOURS:-12}
+    volumes:
+      # Live-mount host config over the image's baked-in copy so edits to
+      # config/<env>/*.yaml take effect on `up -d` without rebuilding.
+      # On SELinux hosts (podman), change `:ro` to `:ro,Z` if reads are denied.
+      - ./config:/app/config:ro
+      - uploads:/data/uploads
+      - logs:/data/logs
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Containerfile
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      API_INTERNAL: http://api:3001
+      API_BASE: ${API_BASE:-}
+      HOST: 0.0.0.0
+      PORT: ${UI_PORT:-3000}
+      # HTTP/2 (+ automatic HTTP/1.1 fallback) TLS termination for the UI. Off
+      # by default; set UI_TLS_ENABLED=true and provide a cert/key (see the
+      # volume mount below) to serve the UI over https/h2. These mirror the
+      # `tls` block in config/<env>/server.yaml.
+      UI_TLS_ENABLED: ${UI_TLS_ENABLED:-false}
+      UI_TLS_CERT: ${UI_TLS_CERT:-/app/certs/fullchain.pem}
+      UI_TLS_KEY: ${UI_TLS_KEY:-/app/certs/privkey.pem}
+      UI_HTTP2: ${UI_HTTP2:-true}
+      # HTTP/3 is advertised via Alt-Svc only; Node can't terminate QUIC, so a
+      # QUIC-capable reverse proxy is required to actually serve h3 (see
+      # DEVELOPMENT.md for a Caddy example). UI_HTTP3_PORT is the UDP port put in
+      # the Alt-Svc header; empty means "same as the listen port".
+      UI_HTTP3: ${UI_HTTP3:-false}
+      UI_HTTP3_PORT: ${UI_HTTP3_PORT:-}
+    volumes:
+      # Certificate mount path for the UI's HTTPS/HTTP-2 listener (read-only).
+      # The container reads UI_TLS_CERT / UI_TLS_KEY from here. Harmless when TLS
+      # is disabled (an empty ./certs just goes unused). Point UI_CERT_DIR at
+      # your own directory to use real certificates.
+      # On SELinux hosts (podman), change `:ro` to `:ro,Z` if reads are denied.
+      - ${UI_CERT_DIR:-./certs}:/app/certs:ro
+    ports:
+      - "${UI_PORT:-3000}:${UI_PORT:-3000}"
+
+volumes:
+  mongo-data:
+  uploads:
+  logs:

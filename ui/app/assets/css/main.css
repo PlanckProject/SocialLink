@@ -1,0 +1,68 @@
+@layer defaults {
+:root {
+  --color-background: #0b0b0f;
+  --color-surface: #15151d;
+  --color-surface-alt: #1d1d27;
+  --color-text: #f5f5f7;
+  --color-text-muted: #a1a1aa;
+  --color-primary: #7c3aed;
+  --color-primary-contrast: #ffffff;
+  --color-accent: #22d3ee;
+  --color-border: rgba(255,255,255,0.08);
+  --font-heading: 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --radius-link: 22px;
+  --radius-link-icon: 14px;
+  --radius-background: 20px;
+  --radius-avatar: 999px;
+  --radius-social-icon: 999px;
+  --radius-button: 999px;
+  --radius-input: 14px;
+  --radius-icon: 14px;
+  --layout-max-width: 620px;
+  --layout-spacing: 16px;
+  --layout-align: center;
+  --avatar-size: 112px;
+  --cover-height: 340px;
+  --button-shadow: 0 8px 24px rgba(0,0,0,0.28);
+  --background-value: #0b0b0f;
+  --background-gradient: linear-gradient(160deg,#1e1b4b 0%,#0b0b0f 60%);
+  --background-image: none;
+  --background-overlay: rgba(0,0,0,0.35);
+}
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { min-height: 100%; scroll-behavior: smooth; background: var(--color-background); color: var(--color-text); -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { margin: 0; min-height: 100vh; font-family: var(--font-body); background: var(--background-image), var(--background-gradient), var(--background-value); color: var(--color-text); line-height: 1.55; text-rendering: optimizeLegibility; }
+a { color: inherit; text-decoration: none; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+img { display: block; max-width: 100%; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--color-accent) 70%, transparent); outline-offset: 3px; }
+
+.app-shell { position: relative; min-height: 100vh; isolation: isolate; }
+.app-content { position: relative; z-index: 1; min-height: 100vh; }
+.container { width: min(100% - 32px, var(--layout-max-width)); margin-inline: auto; }
+.surface { background: color-mix(in srgb, var(--color-surface) 88%, transparent); border: 1px solid var(--color-border); border-radius: var(--radius-background); box-shadow: var(--button-shadow); backdrop-filter: blur(18px); }
+.muted { color: var(--color-text-muted); }
+.admin-layout { width: min(1180px, 100% - 32px); margin: 0 auto; padding: clamp(18px, 4vw, 32px) 0 56px; }
+.admin-grid { display: grid; gap: 18px; }
+.admin-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-background); padding: clamp(16px, 4vw, 22px); box-shadow: var(--button-shadow); }
+.admin-nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 28px; }
+.admin-nav a, .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--color-border); border-radius: var(--radius-button); padding: 10px 16px; color: var(--color-text); background: color-mix(in srgb, var(--color-surface-alt) 85%, transparent); transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+.admin-nav a.router-link-active, .btn.primary { background: var(--color-primary); color: var(--color-primary-contrast); border-color: transparent; }
+.btn.danger { color: #fff; background: #dc2626; border-color: transparent; }
+.btn.ghost { background: transparent; }
+.btn:hover { transform: translateY(-1px); }
+.form-grid { display: grid; gap: 14px; }
+.form-row { display: grid; gap: 6px; }
+.form-row label { color: var(--color-text-muted); font-size: .92rem; }
+input, textarea, select { width: 100%; color: var(--color-text); background: var(--color-surface-alt); border: 1px solid var(--color-border); border-radius: var(--radius-input); padding: 11px 12px; }
+textarea { min-height: 110px; resize: vertical; }
+.error { color: #fecaca; background: rgba(220,38,38,.16); border: 1px solid rgba(248,113,113,.28); padding: 10px 12px; border-radius: var(--radius-background); }
+.success { color: #bbf7d0; background: rgba(22,163,74,.14); border: 1px solid rgba(74,222,128,.25); padding: 10px 12px; border-radius: var(--radius-background); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }
+}

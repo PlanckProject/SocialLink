@@ -1,0 +1,11 @@
+# Local/environment configuration (ignore real configs, keep .sample templates)
+/config/*
+!/config/local/
+/config/local/*
+!/config/local/*.sample
+
+# UI TLS certificates (bind-mounted read-only into the ui container at /app/certs).
+# Keep the directory and its docs, but never commit real keys/certificates.
+/certs/*
+!/certs/.gitkeep
+!/certs/README.md

@@ -1,0 +1,29 @@
+# ---------- Build stage ----------
+FROM docker.io/library/node:24-alpine AS builder
+WORKDIR /app
+# Registry is overridable at build time (e.g. for a corporate mirror); the
+# default keeps the image buildable out of the box for external users.
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+COPY package.json package-lock.json* ./
+# A mirror registry may not carry every tarball the committed lockfile pins to
+# the public registry, so when building against a non-default registry we drop
+# the lockfile and resolve fresh against that mirror. The public-registry build
+# keeps the lockfile for reproducibility.
+RUN if [ "$NPM_REGISTRY" != "https://registry.npmjs.org/" ]; then rm -f package-lock.json; fi \
+    && npm install --no-audit --no-fund --registry="$NPM_REGISTRY"
+COPY . .
+RUN npm run build
+
+# ---------- Runtime stage (SSR node server) ----------
+FROM docker.io/library/node:24-alpine
+WORKDIR /app
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=3000
+COPY --from=builder /app/.output ./.output
+# serve.mjs wraps the Nitro `node`-preset handler in an HTTP/2 (h2) + HTTP/1.1
+# TLS server. TLS is opt-in via UI_TLS_* env (see docker-compose.yml); with it
+# unset the launcher serves plain HTTP exactly like before.
+COPY serve.mjs ./serve.mjs
+EXPOSE 3000
+CMD ["node", "serve.mjs"]

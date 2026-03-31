@@ -1,0 +1,51 @@
+# --- Rust / Cargo ---
+/target/
+/debug/
+/release/
+
+# Cargo package metadata
+**/*.rs.bk
+Cargo.lock
+# (Keep Cargo.lock for binaries; ignore for libraries if publishing)
+
+# --- Build Artifacts ---
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+
+# --- Logs ---
+*.log
+
+# --- Environment / Secrets ---
+.env
+.env.*
+
+# --- IDE / Editor ---
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains / CLion / RustRover
+.idea/
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+.#*
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+
+# --- Testing / Coverage ---
+/coverage/
+/html/
+/lcov.info
+
+# --- Tools ---
+/dist/
+/node_modules/   # if you're mixing Rust + JS tooling

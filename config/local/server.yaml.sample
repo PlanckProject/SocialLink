@@ -1,0 +1,78 @@
+server:
+  host: 0.0.0.0
+  port: 3001
+  cors_origins:
+    - http://localhost:3000
+
+logging:
+  provider: local
+  level: info
+  directives:
+    - "info"
+    - "tower_http=info"
+    - "axum=info"
+  format: text
+  config:
+    file: /data/logs/social-link.log
+    mirror_stdout: true
+    rotation:
+      max_size_mb: 100
+      max_files: 5
+
+auth:
+  jwt_secret: ${JWT_SECRET}
+  jwt_ttl_hours: "${JWT_TTL_HOURS:-12}"   # token/cookie lifetime in hours; override via JWT_TTL_HOURS
+  cookie_secure: false
+  ip_hash_salt: ${IP_HASH_SALT}
+
+database:
+  provider: mongo
+  config:
+    host: mongo
+    port: 27017
+    db: social-link
+    certificate: null
+    username: null
+    password: null
+    connection_string: null
+
+timeseries:
+  provider: mongo
+  config:
+    host: mongo
+    port: 27017
+    db: social-link
+    certificate: null
+    username: null
+    password: null
+    connection_string: null
+    collection: events
+
+storage:
+  provider: local
+  config:
+    base_path: /data/uploads
+    route_prefix: /uploads
+
+cache:
+  provider: redis
+  ttl_seconds: 259200          # 3 days
+  config:
+    connection_string: redis://redis:6379
+    key_prefix: sociallink
+
+# TLS / HTTP-2 termination for the public UI (the Nuxt SSR node server).
+#
+# The API itself is only reached internally (proxied by the UI) and does not
+# terminate TLS, so this block is the canonical, documented place to record the
+# UI's certificate mount path and HTTP/2 / HTTP/3 switches. The UI container
+# reads the matching UI_TLS_* / UI_HTTP* environment variables set on the `ui`
+# service in docker-compose.yml; the values below mirror those via ${VAR:-...}
+# so both stay in sync. The certificate itself is supplied to the UI container
+# through the volume mount declared in docker-compose.yml (default: /app/certs).
+tls:
+  enabled: "${UI_TLS_ENABLED:-false}"          # set true to serve the UI over HTTPS
+  cert_path: "${UI_TLS_CERT:-/app/certs/fullchain.pem}"
+  key_path: "${UI_TLS_KEY:-/app/certs/privkey.pem}"
+  http2: "${UI_HTTP2:-true}"                    # h2 with automatic HTTP/1.1 fallback
+  http3: "${UI_HTTP3:-false}"                   # advertise h3 via Alt-Svc (needs a QUIC proxy)
