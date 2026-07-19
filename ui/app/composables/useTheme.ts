@@ -57,10 +57,16 @@ const radiusSetting = (value: string, fallback: number, max = 50) => {
   return clamp(Number.isFinite(parsed) ? parsed : fallback, 0, max)
 }
 
+/** Converts a percent-like radius setting (0–50; `>=50` = pill) into a CSS
+ *  length, matching how the theme radii are rendered. Shared with per-group
+ *  styling so groups produce identical corners to the theme editor. */
+export function cssRadius(value: string, fallback: number, max = 50) {
+  const setting = radiusSetting(value, fallback, max)
+  return setting >= 50 ? '999px' : `${setting}px`
+}
+
 export function themeToCssVars(theme: Theme) {
   const radiusSettings = {
-    link: radiusSetting(theme.radius.link, 22),
-    linkIcon: radiusSetting(theme.radius.link_icon, 14),
     background: radiusSetting(theme.radius.background, 20, 20),
     avatar: radiusSetting(theme.radius.avatar, 50),
     socialIcon: radiusSetting(theme.radius.social_icon, 50)
@@ -81,7 +87,6 @@ export function themeToCssVars(theme: Theme) {
     '--font-heading': theme.fonts.heading,
     '--font-body': theme.fonts.body,
     '--layout-max-width': theme.layout.max_width,
-    '--layout-spacing': theme.layout.spacing,
     '--layout-align': theme.layout.align,
     '--cover-height': theme.layout.cover_height,
     '--button-shadow': theme.button.shadow,

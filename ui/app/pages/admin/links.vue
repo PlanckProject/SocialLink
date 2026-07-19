@@ -11,23 +11,23 @@ const editingLink = ref<AdminLink | null>(null)
 const uploadingImage = ref(false)
 const linkError = ref('')
 const groupError = ref('')
-const newGroup = reactive({ title: '', description: '', collapsible: true, layout: 'list', corners: 'rounded', icon: 'round' })
+const newGroup = reactive({ title: '', description: '' })
 const editingGroupId = ref<string | null>(null)
-const editGroupForm = reactive({ title: '', description: '', collapsible: true, layout: 'list', corners: 'rounded', icon: 'round' })
+const editGroupForm = reactive({ title: '', description: '' })
 
 const groupOptions = computed<AdminGroup[]>(() => [{ id: '', title: 'Ungrouped', description: '', collapsible: false, is_active: true, sort_order: -1, style: DEFAULT_GROUP_STYLE }, ...(groups.value || [])])
 const linksByGroup = (group_id: string | null) => (links.value || []).filter(link => (link.group_id || '') === (group_id || '')).sort((a, b) => a.sort_order - b.sort_order)
 async function reload() { await Promise.all([refreshGroups(), refreshLinks()]) }
 async function createGroup() {
   if (!newGroup.title.trim()) return
-  await apiFetch('/api/admin/groups', { method: 'POST', body: { title: newGroup.title.trim(), description: newGroup.description, collapsible: newGroup.collapsible, style: { layout: newGroup.layout, corners: newGroup.corners, icon: newGroup.icon } } })
-  Object.assign(newGroup, { title: '', description: '', collapsible: true, layout: 'list', corners: 'rounded', icon: 'round' }); await refreshGroups()
+  await apiFetch('/api/admin/groups', { method: 'POST', body: { title: newGroup.title.trim(), description: newGroup.description } })
+  Object.assign(newGroup, { title: '', description: '' }); await refreshGroups()
 }
-function startEditGroup(group: AdminGroup) { editingGroupId.value = group.id; const s = group.style || DEFAULT_GROUP_STYLE; Object.assign(editGroupForm, { title: group.title, description: group.description || '', collapsible: group.collapsible, layout: s.layout, corners: s.corners, icon: s.icon }) }
+function startEditGroup(group: AdminGroup) { editingGroupId.value = group.id; Object.assign(editGroupForm, { title: group.title, description: group.description || '' }) }
 function cancelEditGroup() { editingGroupId.value = null }
 async function saveEditGroup(group: AdminGroup) {
   if (!editGroupForm.title.trim()) return
-  await apiFetch(`/api/admin/groups/${group.id}`, { method: 'PUT', body: { title: editGroupForm.title.trim(), description: editGroupForm.description, collapsible: editGroupForm.collapsible, style: { layout: editGroupForm.layout, corners: editGroupForm.corners, icon: editGroupForm.icon } } })
+  await apiFetch(`/api/admin/groups/${group.id}`, { method: 'PUT', body: { title: editGroupForm.title.trim(), description: editGroupForm.description } })
   editingGroupId.value = null; await refreshGroups()
 }
 async function deleteGroup(id: string) { await apiFetch(`/api/admin/groups/${id}`, { method: 'DELETE' }); await reload() }
@@ -169,10 +169,6 @@ async function moveGroup(group: AdminGroup, dir: -1 | 1) {
         <form class="group-add" @submit.prevent="createGroup">
           <input v-model="newGroup.title" class="ga-input" placeholder="New group name" required>
           <input v-model="newGroup.description" class="ga-input" placeholder="Description (optional)">
-          <label class="check"><input v-model="newGroup.collapsible" type="checkbox"> Collapsible</label>
-          <select v-model="newGroup.layout" class="ga-select" title="Link layout"><option value="list">List</option><option value="grid">Grid</option></select>
-          <select v-model="newGroup.corners" class="ga-select" title="Card corners"><option value="rounded">Rounded</option><option value="sharp">Sharp</option></select>
-          <select v-model="newGroup.icon" class="ga-select" title="Icon shape"><option value="round">Round icons</option><option value="square">Square icons</option></select>
           <button class="btn primary" type="submit">Add group</button>
         </form>
         <p v-if="groupError" class="form-error">{{ groupError }}</p>
@@ -183,10 +179,6 @@ async function moveGroup(group: AdminGroup, dir: -1 | 1) {
               <div class="group-edit">
                 <input v-model="editGroupForm.title" class="ga-input" placeholder="Group name">
                 <input v-model="editGroupForm.description" class="ga-input" placeholder="Description">
-                <label class="check"><input v-model="editGroupForm.collapsible" type="checkbox"> Collapsible</label>
-                <select v-model="editGroupForm.layout" class="ga-select" title="Link layout"><option value="list">List</option><option value="grid">Grid</option></select>
-                <select v-model="editGroupForm.corners" class="ga-select" title="Card corners"><option value="rounded">Rounded</option><option value="sharp">Sharp</option></select>
-                <select v-model="editGroupForm.icon" class="ga-select" title="Icon shape"><option value="round">Round icons</option><option value="square">Square icons</option></select>
               </div>
               <span class="group-actions">
                 <button class="btn primary" @click="saveEditGroup(group)">Save</button>
@@ -227,7 +219,6 @@ h2, h3 { font-family: var(--font-heading); margin: 0; }
 .form-error { margin: 0; color: #fca5a5; font-size: .9rem; }
 .group-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 14px; border-bottom: 1px dashed var(--color-border); }
 .group-add .ga-input { flex: 1 1 150px; width: auto; min-width: 0; }
-.group-add .ga-select, .group-edit .ga-select { flex: 0 1 auto; width: auto; min-width: 0; padding: 9px 10px; }
 .group-add .btn { flex: none; }
 .icon-type-tabs { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .icon-type-tabs .tab { padding: 7px 13px; border: 1px solid var(--color-border); border-radius: var(--radius-input); background: var(--color-surface-alt); color: var(--color-text); font-size: .85rem; cursor: pointer; transition: border-color .15s ease, background .15s ease; }

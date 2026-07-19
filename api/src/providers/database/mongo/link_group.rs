@@ -46,7 +46,7 @@ impl From<&LinkGroup> for LinkGroupRecord {
             sort_order: group.sort_order,
             is_collapsible: group.is_collapsible,
             is_active: group.is_active,
-            style: group.style,
+            style: group.style.clone(),
             created_at: group.created_at,
             updated_at: group.updated_at,
         }
@@ -159,8 +159,8 @@ impl LinkGroupRepository for MongoLinkGroupRepository {
         if let Some(is_collapsible) = input.is_collapsible {
             group.is_collapsible = is_collapsible;
         }
-        if let Some(style) = input.style {
-            group.style = style;
+        if let Some(style) = &input.style {
+            group.style = style.clone();
         }
 
         let record = LinkGroupRecord::from(&group);
@@ -185,10 +185,10 @@ impl LinkGroupRepository for MongoLinkGroupRepository {
         if let Some(is_collapsible) = input.is_collapsible {
             set.insert("is_collapsible", is_collapsible);
         }
-        if let Some(style) = input.style {
+        if let Some(style) = &input.style {
             set.insert(
                 "style",
-                bson::to_bson(&style).context("serialize group style")?,
+                bson::to_bson(style).context("serialize group style")?,
             );
         }
 

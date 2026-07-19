@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Theme } from '~/app.config'
+import type { AdminGroup, GroupStyle } from '~/types/social'
+import { DEFAULT_GROUP_STYLE } from '~/types/social'
 import { cloneTheme, PRESET_THEMES } from '~/config/themes'
 
 definePageMeta({ middleware: 'auth' })
@@ -20,6 +22,50 @@ const { data: themes, refresh } = await useAsyncData('theme-presets', () => apiF
 const status = ref('')
 const error = ref('')
 const showFavoritesOnly = ref(false)
+
+// Per-group appearance. Layout, corner radii, link spacing and collapsing are
+// set per group here (not globally) so every link in a group stays consistent.
+const { data: adminGroups, refresh: refreshGroups } = await useAsyncData('appearance-groups', () => apiFetch<AdminGroup[]>('/api/admin/groups').catch(() => []))
+const selectedGroupId = ref('')
+const groupStyle = reactive<GroupStyle & { collapsible: boolean }>({ ...DEFAULT_GROUP_STYLE, collapsible: true })
+const groupStatus = ref('')
+const groupError = ref('')
+const selectedGroup = computed(() => (adminGroups.value || []).find(group => group.id === selectedGroupId.value) || null)
+
+function loadGroupStyle(group: AdminGroup | null) {
+  const style = group?.style || DEFAULT_GROUP_STYLE
+  Object.assign(groupStyle, {
+    layout: style.layout,
+    link_radius: style.link_radius,
+    icon_radius: style.icon_radius,
+    spacing: style.spacing,
+    collapsible: group ? group.collapsible : true
+  })
+}
+watch(adminGroups, groups => {
+  if (!groups?.length) { selectedGroupId.value = ''; return }
+  if (!groups.some(group => group.id === selectedGroupId.value)) selectedGroupId.value = groups[0].id
+}, { immediate: true })
+watch(selectedGroup, group => loadGroupStyle(group), { immediate: true })
+
+async function saveGroupAppearance() {
+  const group = selectedGroup.value
+  if (!group) return
+  groupStatus.value = ''; groupError.value = ''
+  try {
+    await apiFetch(`/api/admin/groups/${group.id}`, {
+      method: 'PUT',
+      body: {
+        title: group.title,
+        description: group.description,
+        collapsible: groupStyle.collapsible,
+        style: { layout: groupStyle.layout, link_radius: groupStyle.link_radius, icon_radius: groupStyle.icon_radius, spacing: groupStyle.spacing }
+      }
+    })
+    await refreshGroups()
+    groupStatus.value = `Saved appearance for ${group.title}.`
+  } catch { groupError.value = 'Unable to save group appearance.' }
+}
 const googleFontsText = computed({ get: () => editor.value.fonts.google_fonts.join(', '), set: value => { editor.value.fonts.google_fonts = value.split(',').map(item => item.trim()).filter(Boolean) } })
 const backgroundRadiusPercent = computed({
   get: () => {
@@ -242,20 +288,48 @@ async function uploadFavicon(event: Event) {
 
         <fieldset>
           <legend>Links</legend>
-          <p class="fieldset-hint">Link cards, groups, interactions, and analytics.</p>
+          <p class="fieldset-hint">Card style shared by every link. Layout, corners, spacing and collapsing are set per group below.</p>
           <div class="two">
-            <label class="form-row">Layout<select v-model="editor.layout.link_style"><option value="list">List</option><option value="grid">Grid</option></select></label>
-            <label class="form-row">Group spacing<input v-model="editor.layout.spacing"></label>
             <label class="form-row">Style<select v-model="editor.button.variant"><option value="solid">Solid</option><option value="outline">Outline</option><option value="glass">Glass</option><option value="soft">Soft</option></select></label>
             <label class="form-row">Shadow<input v-model="editor.button.shadow"></label>
-            <label class="form-row radius-row"><span class="lbl">Link corners (%) <small>Roundness of each link card</small></span><input v-model="editor.radius.link" inputmode="decimal" placeholder="22%"></label>
-            <label class="form-row radius-row"><span class="lbl">Link icon corners (%) <small>Images and icon badges inside links</small></span><input v-model="editor.radius.link_icon" inputmode="decimal" placeholder="14%"></label>
           </div>
           <div class="toggles section-toggles">
             <label class="check"><input v-model="editor.button.hover_lift" type="checkbox"> Hover lift</label>
             <label class="check"><input v-model="editor.features.show_click_count" type="checkbox"> Show click count</label>
-            <label class="check"><input v-model="editor.features.collapsible_groups" type="checkbox"> Collapsible groups</label>
           </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Group appearance</legend>
+          <p class="fieldset-hint">Pick a group, then set how its links look. These apply to every link in that group.</p>
+          <template v-if="(adminGroups || []).length">
+            <div class="group-picker" role="tablist" aria-label="Groups">
+              <button
+                v-for="group in adminGroups"
+                :key="group.id"
+                type="button"
+                role="tab"
+                class="group-chip"
+                :class="{ active: group.id === selectedGroupId }"
+                :aria-selected="group.id === selectedGroupId"
+                @click="selectedGroupId = group.id"
+              >{{ group.title }}</button>
+            </div>
+            <div class="two">
+              <label class="form-row">Layout<select v-model="groupStyle.layout"><option value="list">List</option><option value="grid">Grid</option></select></label>
+              <label class="form-row">Link spacing<input v-model="groupStyle.spacing" placeholder="12px"></label>
+              <label class="form-row radius-row"><span class="lbl">Link corners (%) <small>Roundness of each link card</small></span><input v-model="groupStyle.link_radius" inputmode="decimal" placeholder="22%"></label>
+              <label class="form-row radius-row"><span class="lbl">Link icon corners (%) <small>Images and icon badges inside links</small></span><input v-model="groupStyle.icon_radius" inputmode="decimal" placeholder="50%"></label>
+            </div>
+            <div class="toggles section-toggles">
+              <label class="check"><input v-model="groupStyle.collapsible" type="checkbox"> Collapsible</label>
+            </div>
+            <div class="group-appearance-actions">
+              <button class="btn primary" type="button" @click="saveGroupAppearance">Save group appearance</button>
+              <p v-if="groupStatus" class="success">{{ groupStatus }}</p><p v-if="groupError" class="error">{{ groupError }}</p>
+            </div>
+          </template>
+          <p v-else class="section-hint empty">Create groups on the Links page first, then style each one here.</p>
         </fieldset>
 
         <fieldset>
@@ -322,7 +396,7 @@ async function uploadFavicon(event: Event) {
                 <p class="mini-bio">This preview reflects every setting live.</p>
                 <div class="mini-socials"><span></span><span></span><span></span></div>
                 <p v-if="editor.features.show_view_count" class="mini-meta">1,248 views</p>
-                <div class="mini-links" :class="`style-${editor.layout.link_style}`">
+                <div class="mini-links style-list">
                   <a
                     v-for="link in previewLinks"
                     :key="link.title"
@@ -399,6 +473,12 @@ fieldset { border: 1px solid var(--color-border); border-radius: var(--radius-ba
 .color-controls input[type='color'] { width: 44px; min-width: 44px; padding: 4px; }
 .toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .section-toggles { margin-top: 14px; }
+.group-picker { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.group-chip { flex: 0 0 auto; min-height: 40px; padding: 8px 14px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface-alt); color: var(--color-text); font-size: .85rem; cursor: pointer; white-space: nowrap; transition: border-color .15s ease, background .15s ease, color .15s ease; }
+.group-chip:hover { border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border)); }
+.group-chip.active { background: var(--color-primary); color: var(--color-primary-contrast); border-color: transparent; }
+.group-appearance-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.group-appearance-actions .btn { align-self: start; }
 .branding-toggles { grid-template-columns: 1fr; }
 .check { min-height: 44px; display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-input); background: var(--color-surface-alt); color: var(--color-text); font-size: .88rem; cursor: pointer; user-select: none; transition: border-color .15s ease, background .15s ease; }
 .check:hover { border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border)); }

@@ -106,7 +106,7 @@ pub async fn build_public_profile(
             title: group.group.title.clone(),
             description: group.group.description.clone(),
             collapsible: group.group.is_collapsible,
-            style: group.group.style,
+            style: group.group.style.clone(),
             links: group
                 .links
                 .iter()

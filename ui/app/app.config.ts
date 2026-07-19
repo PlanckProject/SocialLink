@@ -17,17 +17,13 @@ export interface Theme {
     google_fonts: string[]
   }
   radius: {
-    link: string
-    link_icon: string
     background: string
     avatar: string
     social_icon: string
   }
   layout: {
     max_width: string
-    link_style: 'list' | 'grid'
     cover_height: string
-    spacing: string
     align: 'left' | 'center' | 'right'
   }
   button: {
@@ -65,7 +61,6 @@ export interface Theme {
   features: {
     show_view_count: boolean
     show_click_count: boolean
-    collapsible_groups: boolean
     show_cover_photo: boolean
   }
 }
@@ -75,13 +70,11 @@ export const DEFAULT_THEME: Theme = {
   colors: { background: '#0b0b0f', surface: '#15151d', surface_alt: '#1d1d27', text: '#f5f5f7', text_muted: '#a1a1aa', primary: '#7c3aed', primary_contrast: '#ffffff', accent: '#22d3ee', border: 'rgba(255,255,255,0.08)' },
   fonts: { heading: "'Inter', system-ui, sans-serif", body: "'Inter', system-ui, sans-serif", google_fonts: ['Inter:wght@400;500;600;700'] },
   radius: {
-    link: '22%',
-    link_icon: '14%',
     background: '20%',
     avatar: '50%',
     social_icon: '50%'
   },
-  layout: { max_width: '620px', link_style: 'list', cover_height: '340px', spacing: '16px', align: 'center' },
+  layout: { max_width: '620px', cover_height: '340px', align: 'center' },
   button: { variant: 'glass', shadow: '0 8px 24px rgba(0,0,0,0.28)', hover_lift: true },
   background: {
     type: 'gradient',
@@ -93,7 +86,7 @@ export const DEFAULT_THEME: Theme = {
   },
   effects: { cover_fade: true, cover_parallax: true },
   branding: { site_name: 'SocialLink', logo: null, favicon: '/favicon.ico', footer_text: 'Made with <a href="https://github.com/PlanckProject/SocialLink" target="_blank" rel="noopener noreferrer">SocialLink</a>', show_footer: true },
-  features: { show_view_count: false, show_click_count: false, show_cover_photo: true, collapsible_groups: true }
+  features: { show_view_count: false, show_click_count: false, show_cover_photo: true }
 }
 
 export default defineAppConfig({ theme: DEFAULT_THEME })

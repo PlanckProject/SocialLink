@@ -2,7 +2,7 @@
 const props = defineProps<{ src?: string | null; alt?: string }>()
 const config = useConfigStore()
 const { style } = useScrollFade(computed(() => config.theme))
-const cover = useOptimizedImage(() => props.src, { width: 640 })
+const cover = useOptimizedImage(() => props.src, { width: 960 })
 </script>
 
 <template>
@@ -29,6 +29,24 @@ const cover = useOptimizedImage(() => props.src, { width: 640 })
   z-index: 0;
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 52%, rgba(0,0,0,.92) 62%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 52%, rgba(0,0,0,.92) 62%, transparent 100%);
+}
+/* On wider screens the content column (620px) is far narrower than the
+   viewport, so a column-width cover looks harshly cropped at the sides. Widen
+   it well past the content and fade the left/right (plus the existing bottom)
+   edges into the page background so the centred subject stays fully visible
+   while the borders blend away. */
+@media (min-width: 720px) {
+  .cover-wrap {
+    width: min(100vw, 1180px);
+    -webkit-mask-image:
+      linear-gradient(to bottom, #000 0%, #000 52%, rgba(0,0,0,.92) 62%, transparent 100%),
+      linear-gradient(to right, transparent 0%, #000 22%, #000 78%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to bottom, #000 0%, #000 52%, rgba(0,0,0,.92) 62%, transparent 100%),
+      linear-gradient(to right, transparent 0%, #000 22%, #000 78%, transparent 100%);
+    mask-composite: intersect;
+  }
 }
 .cover { height: 100%; transform-origin: center top; will-change: opacity, transform; }
 .cover-img, .cover-fallback { width: 100%; height: 100%; object-fit: cover; }

@@ -32,7 +32,7 @@ const iconImg = useOptimizedImage(() => props.link.icon_image, { width: 38 })
 </template>
 
 <style scoped>
-.link-card { width: 100%; min-width: 0; min-height: 68px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'icon content clicks'; gap: 14px; align-items: center; padding: 15px 17px; border-radius: var(--radius-link); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--button-shadow); transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+.link-card { width: 100%; min-width: 0; min-height: 54px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'icon content clicks'; gap: 14px; align-items: start; padding: 15px 17px; border-radius: var(--radius-link); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--button-shadow); transition: transform .2s ease, border-color .2s ease, background .2s ease; }
 .link-card.grid { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'icon content' 'icon clicks'; gap: 5px 10px; align-items: start; padding: 13px; }
 .link-card.lift:hover { transform: translateY(-3px); }
 .link-card:hover { border-color: color-mix(in srgb, var(--color-primary) 60%, var(--color-border)); }

@@ -154,7 +154,7 @@ impl AdminGroupDto {
             collapsible: g.is_collapsible,
             is_active: g.is_active,
             sort_order: g.sort_order,
-            style: g.style,
+            style: g.style.clone(),
         }
     }
 }

@@ -15,7 +15,7 @@ useProfileSeo(computed(() => props.data))
 </script>
 
 <template>
-  <main>
+  <main class="profile-main">
     <CoverImage :src="data.profile.cover_url" :alt="`${data.profile.display_name} cover photo`" />
     <div class="container profile-shell">
       <ProfileHeader :profile="data.profile" :views="data.stats?.views" />
@@ -31,9 +31,10 @@ useProfileSeo(computed(() => props.data))
 </template>
 
 <style scoped>
-.profile-shell { position: relative; z-index: 1; padding-bottom: 48px; }
+.profile-main { display: flex; flex-direction: column; min-height: 100vh; }
+.profile-shell { position: relative; z-index: 1; display: flex; flex-direction: column; flex: 1 1 auto; padding-bottom: 48px; }
 .link-stack { display: grid; gap: 8px; }
-.footer { padding: 28px 0 10px; color: var(--color-text-muted); text-align: center; font-size: .92rem; }
+.footer { margin-top: auto; padding: 28px 0 10px; color: var(--color-text-muted); text-align: center; font-size: .92rem; }
 .footer :deep(a) { color: var(--color-accent); text-decoration: none; font-weight: 600; transition: opacity .15s ease; }
 .footer :deep(a:hover) { text-decoration: underline; opacity: .85; }
 </style>

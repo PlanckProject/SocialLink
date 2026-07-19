@@ -17,17 +17,13 @@
     "google_fonts": ["Inter:wght@400;500;600;700"]
   },
   "radius": {
-    "link": "22%",
-    "link_icon": "14%",
     "background": "20%",
     "avatar": "50%",
     "social_icon": "50%"
   },
   "layout": {
     "max_width": "620px",
-    "link_style": "list",
     "cover_height": "340px",
-    "spacing": "16px",
     "align": "center"
   },
   "button": {
@@ -65,7 +61,6 @@
   "features": {
     "show_view_count": false,
     "show_click_count": false,
-    "show_cover_photo": true,
-    "collapsible_groups": true
+    "show_cover_photo": true
   }
 }
