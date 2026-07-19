@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { Theme } from '~/app.config'
+import type { Branding, Theme } from '~/app.config'
+import { DEFAULT_BRANDING } from '~/app.config'
 import type { AdminGroup, GroupStyle } from '~/types/social'
 import { DEFAULT_GROUP_STYLE } from '~/types/social'
 import { cloneTheme, PRESET_THEMES } from '~/config/themes'
@@ -14,6 +15,26 @@ const activeTheme = await apiFetch<Theme>('/api/admin/theme')
 config.setTheme(activeTheme)
 const editor = ref<Theme>(cloneTheme(activeTheme))
 const styleText = computed(() => varsToStyle(themeToCssVars(editor.value)))
+
+// Branding is a profile-level property (not part of the theme), so it stays
+// unchanged when themes are applied/saved/imported. Loaded from and saved to
+// the admin profile.
+interface AdminProfile { username: string; email: string; display_name: string; bio: string | null; location: string | null; socials: { platform: string; url: string }[]; avatar_url: string | null; cover_url: string | null; branding: Branding }
+const adminProfile = await apiFetch<AdminProfile>('/api/admin/profile').catch(() => null)
+const branding = reactive<Branding>({ ...DEFAULT_BRANDING, ...(adminProfile?.branding || {}) })
+config.setBranding({ ...branding })
+const brandingStatus = ref('')
+const brandingError = ref('')
+async function saveBranding() {
+  brandingStatus.value = ''; brandingError.value = ''
+  try {
+    const updated = await apiFetch<AdminProfile>('/api/admin/profile', { method: 'PUT', body: { branding: { ...branding } } })
+    Object.assign(branding, updated.branding)
+    config.setBranding({ ...branding })
+    brandingStatus.value = 'Branding saved.'
+  } catch { brandingError.value = 'Unable to save branding.' }
+}
+
 const previewLinks = [
   { title: 'Featured collection and new releases', url: 'shop.example.com/collections/featured', icon: '🛍️', clicks: '1.2k' },
   { title: 'Book a strategy call', url: 'calendar.example.com/consultation', icon: '📅', clicks: '318' }
@@ -25,33 +46,74 @@ const showFavoritesOnly = ref(false)
 
 // Per-group appearance. Layout, corner radii, link spacing and collapsing are
 // set per group here (not globally) so every link in a group stays consistent.
+// The synthetic "Ungrouped" tab edits the theme-level ungrouped link style.
+const UNGROUPED = '__ungrouped__'
 const { data: adminGroups, refresh: refreshGroups } = await useAsyncData('appearance-groups', () => apiFetch<AdminGroup[]>('/api/admin/groups').catch(() => []))
 const selectedGroupId = ref('')
 const groupStyle = reactive<GroupStyle & { collapsible: boolean }>({ ...DEFAULT_GROUP_STYLE, collapsible: true })
 const groupStatus = ref('')
 const groupError = ref('')
+const isUngrouped = computed(() => selectedGroupId.value === UNGROUPED)
 const selectedGroup = computed(() => (adminGroups.value || []).find(group => group.id === selectedGroupId.value) || null)
+const groupTabs = computed(() => [...(adminGroups.value || []).map(group => ({ id: group.id, title: group.title })), { id: UNGROUPED, title: 'Ungrouped' }])
 
-function loadGroupStyle(group: AdminGroup | null) {
+// Live preview link cards mirror the currently-edited group's style so both the
+// preview and the "Link spacing" control visibly reflect edits.
+const previewGroupVars = computed<Record<string, string>>(() => ({
+  '--group-spacing': groupStyle.spacing || DEFAULT_GROUP_STYLE.spacing,
+  '--radius-link': cssRadius(groupStyle.link_radius, 50),
+  '--radius-link-icon': cssRadius(groupStyle.icon_radius, 50)
+}))
+
+function loadGroupStyle() {
+  if (isUngrouped.value) {
+    const style = editor.value.ungrouped || DEFAULT_GROUP_STYLE
+    Object.assign(groupStyle, {
+      layout: style.layout,
+      link_radius: style.link_radius,
+      icon_radius: style.icon_radius,
+      spacing: style.spacing,
+      title_align: style.title_align || 'left',
+      collapsible: false
+    })
+    return
+  }
+  const group = selectedGroup.value
   const style = group?.style || DEFAULT_GROUP_STYLE
   Object.assign(groupStyle, {
     layout: style.layout,
     link_radius: style.link_radius,
     icon_radius: style.icon_radius,
     spacing: style.spacing,
+    title_align: style.title_align || 'left',
     collapsible: group ? group.collapsible : true
   })
 }
 watch(adminGroups, groups => {
-  if (!groups?.length) { selectedGroupId.value = ''; return }
-  if (!groups.some(group => group.id === selectedGroupId.value)) selectedGroupId.value = groups[0].id
+  const ids = (groups || []).map(group => group.id)
+  if (selectedGroupId.value !== UNGROUPED && !ids.includes(selectedGroupId.value)) {
+    selectedGroupId.value = ids[0] || UNGROUPED
+  }
 }, { immediate: true })
-watch(selectedGroup, group => loadGroupStyle(group), { immediate: true })
+watch(selectedGroupId, loadGroupStyle, { immediate: true })
+watch(adminGroups, loadGroupStyle)
 
 async function saveGroupAppearance() {
+  groupStatus.value = ''; groupError.value = ''
+  const style: GroupStyle = { layout: groupStyle.layout, link_radius: groupStyle.link_radius, icon_radius: groupStyle.icon_radius, spacing: groupStyle.spacing, title_align: groupStyle.title_align }
+  if (isUngrouped.value) {
+    editor.value.ungrouped = { ...style }
+    try {
+      const applied = await apiFetch<Theme>('/api/admin/theme', { method: 'PUT', body: { config: editor.value } })
+      editor.value = cloneTheme(applied)
+      syncConfig(applied)
+      await refresh()
+      groupStatus.value = 'Saved ungrouped link appearance.'
+    } catch { groupError.value = 'Unable to save ungrouped appearance.' }
+    return
+  }
   const group = selectedGroup.value
   if (!group) return
-  groupStatus.value = ''; groupError.value = ''
   try {
     await apiFetch(`/api/admin/groups/${group.id}`, {
       method: 'PUT',
@@ -59,7 +121,7 @@ async function saveGroupAppearance() {
         title: group.title,
         description: group.description,
         collapsible: groupStyle.collapsible,
-        style: { layout: groupStyle.layout, link_radius: groupStyle.link_radius, icon_radius: groupStyle.icon_radius, spacing: groupStyle.spacing }
+        style
       }
     })
     await refreshGroups()
@@ -193,8 +255,8 @@ async function uploadFavicon(event: Event) {
   try {
     const body = new FormData(); body.append('file', file)
     const res = await apiFetch<{ url: string }>('/api/admin/uploads/favicon', { method: 'POST', body })
-    editor.value.branding.favicon = res.url
-    status.value = 'Favicon uploaded. Save the theme to apply it.'
+    branding.favicon = res.url
+    status.value = 'Favicon uploaded. Save branding to apply it.'
   } catch {
     error.value = 'Unable to upload favicon. Only .ico files are allowed.'
   } finally {
@@ -301,35 +363,45 @@ async function uploadFavicon(event: Event) {
 
         <fieldset>
           <legend>Group appearance</legend>
-          <p class="fieldset-hint">Pick a group, then set how its links look. These apply to every link in that group.</p>
-          <template v-if="(adminGroups || []).length">
-            <div class="group-picker" role="tablist" aria-label="Groups">
-              <button
-                v-for="group in adminGroups"
-                :key="group.id"
-                type="button"
-                role="tab"
-                class="group-chip"
-                :class="{ active: group.id === selectedGroupId }"
-                :aria-selected="group.id === selectedGroupId"
-                @click="selectedGroupId = group.id"
-              >{{ group.title }}</button>
-            </div>
-            <div class="two">
-              <label class="form-row">Layout<select v-model="groupStyle.layout"><option value="list">List</option><option value="grid">Grid</option></select></label>
-              <label class="form-row">Link spacing<input v-model="groupStyle.spacing" placeholder="12px"></label>
-              <label class="form-row radius-row"><span class="lbl">Link corners (%) <small>Roundness of each link card</small></span><input v-model="groupStyle.link_radius" inputmode="decimal" placeholder="22%"></label>
-              <label class="form-row radius-row"><span class="lbl">Link icon corners (%) <small>Images and icon badges inside links</small></span><input v-model="groupStyle.icon_radius" inputmode="decimal" placeholder="50%"></label>
-            </div>
-            <div class="toggles section-toggles">
-              <label class="check"><input v-model="groupStyle.collapsible" type="checkbox"> Collapsible</label>
-            </div>
-            <div class="group-appearance-actions">
-              <button class="btn primary" type="button" @click="saveGroupAppearance">Save group appearance</button>
-              <p v-if="groupStatus" class="success">{{ groupStatus }}</p><p v-if="groupError" class="error">{{ groupError }}</p>
-            </div>
-          </template>
-          <p v-else class="section-hint empty">Create groups on the Links page first, then style each one here.</p>
+          <p class="fieldset-hint">Pick a group, then set how its links look. These apply to every link in that group. Use “Ungrouped” to style links that aren’t in any group.</p>
+          <div class="group-picker" role="tablist" aria-label="Groups">
+            <button
+              v-for="tab in groupTabs"
+              :key="tab.id"
+              type="button"
+              role="tab"
+              class="group-chip"
+              :class="{ active: tab.id === selectedGroupId, ungrouped: tab.id === UNGROUPED }"
+              :aria-selected="tab.id === selectedGroupId"
+              @click="selectedGroupId = tab.id"
+            >{{ tab.title }}</button>
+          </div>
+          <div class="two">
+            <label class="form-row">Layout<select v-model="groupStyle.layout"><option value="list">List</option><option value="grid">Grid</option></select></label>
+            <label class="form-row">Link spacing<input v-model="groupStyle.spacing" placeholder="12px"></label>
+            <label class="form-row radius-row"><span class="lbl">Link corners (%) <small>Roundness of each link card</small></span><input v-model="groupStyle.link_radius" inputmode="decimal" placeholder="22%"></label>
+            <label class="form-row radius-row"><span class="lbl">Link icon corners (%) <small>Images and icon badges inside links</small></span><input v-model="groupStyle.icon_radius" inputmode="decimal" placeholder="50%"></label>
+            <label v-if="!isUngrouped" class="form-row">Title alignment<select v-model="groupStyle.title_align"><option value="left">Left</option><option value="center">Center</option></select></label>
+          </div>
+          <div v-if="!isUngrouped" class="toggles section-toggles">
+            <label class="check"><input v-model="groupStyle.collapsible" type="checkbox"> Collapsible</label>
+          </div>
+          <div class="group-appearance-actions">
+            <button class="btn primary" type="button" @click="saveGroupAppearance">{{ isUngrouped ? 'Save ungrouped appearance' : 'Save group appearance' }}</button>
+            <p v-if="groupStatus" class="success">{{ groupStatus }}</p><p v-if="groupError" class="error">{{ groupError }}</p>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Glass</legend>
+          <p class="fieldset-hint">Translucent panels with a blurred background. Applies to glass link cards and, when enabled, the whole UI — panels stacked on panels blur progressively.</p>
+          <div class="toggles section-toggles">
+            <label class="check"><input v-model="editor.effects.glass" type="checkbox"> Glass UI (translucent panels)</label>
+          </div>
+          <div class="two">
+            <label class="form-row">Glass opacity (%)<input v-model.number="editor.effects.glass_opacity" type="number" min="0" max="100" step="1"></label>
+            <label class="form-row">Glass blur (px)<input v-model.number="editor.effects.glass_blur" type="number" min="0" max="60" step="1"></label>
+          </div>
         </fieldset>
 
         <fieldset>
@@ -379,7 +451,7 @@ async function uploadFavicon(event: Event) {
           </div>
         </fieldset>
 
-        <fieldset><legend>Branding</legend><div class="two"><label class="form-row">Site name<input v-model="editor.branding.site_name"></label><label class="form-row">Logo URL<input v-model="editor.branding.logo"></label><div class="form-row favicon-field">Favicon<div class="input-group"><input v-model="editor.branding.favicon" placeholder="/favicon.ico"><label class="upload-btn" :class="{ busy: uploadingFavicon }" :title="uploadingFavicon ? 'Uploading…' : 'Upload a .ico file'" aria-label="Upload favicon (.ico)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg><input hidden type="file" accept=".ico,image/x-icon,image/vnd.microsoft.icon" @change="uploadFavicon"></label></div></div><label class="form-row">Footer text<input v-model="editor.branding.footer_text"></label></div><p class="fieldset-hint">Footer text supports HTML (e.g. a link); links use your theme colors.</p><div class="toggles section-toggles branding-toggles"><label class="check"><input v-model="editor.branding.show_footer" type="checkbox"> Show footer</label></div></fieldset>
+        <fieldset><legend>Branding</legend><p class="fieldset-hint">Site identity that stays the same when you switch themes. Saved to your profile, not the theme.</p><div class="two"><label class="form-row">Site name<input v-model="branding.site_name" maxlength="256"></label><label class="form-row">Logo URL<input v-model="branding.logo"></label><div class="form-row favicon-field">Favicon<div class="input-group"><input v-model="branding.favicon" placeholder="/favicon.ico"><label class="upload-btn" :class="{ busy: uploadingFavicon }" :title="uploadingFavicon ? 'Uploading…' : 'Upload a .ico file'" aria-label="Upload favicon (.ico)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg><input hidden type="file" accept=".ico,image/x-icon,image/vnd.microsoft.icon" @change="uploadFavicon"></label></div></div><label class="form-row">Footer text<input v-model="branding.footer_text" maxlength="256"></label></div><p class="fieldset-hint">Footer text supports HTML (e.g. a link); links use your theme colors.</p><div class="toggles section-toggles branding-toggles"><label class="check"><input v-model="branding.show_footer" type="checkbox"> Show footer</label></div><div class="group-appearance-actions"><button class="btn primary" type="button" @click="saveBranding">Save branding</button><p v-if="brandingStatus" class="success">{{ brandingStatus }}</p><p v-if="brandingError" class="error">{{ brandingError }}</p></div></fieldset>
       </section>
 
       <div class="preview-col">
@@ -396,7 +468,7 @@ async function uploadFavicon(event: Event) {
                 <p class="mini-bio">This preview reflects every setting live.</p>
                 <div class="mini-socials"><span></span><span></span><span></span></div>
                 <p v-if="editor.features.show_view_count" class="mini-meta">1,248 views</p>
-                <div class="mini-links style-list">
+                <div class="mini-links" :class="`style-${groupStyle.layout}`" :style="previewGroupVars">
                   <a
                     v-for="link in previewLinks"
                     :key="link.title"
@@ -408,7 +480,7 @@ async function uploadFavicon(event: Event) {
                     <span v-if="editor.features.show_click_count" class="mini-clicks">{{ link.clicks }}</span>
                   </a>
                 </div>
-                <p v-if="editor.branding.show_footer" class="mini-footer" v-html="editor.branding.footer_text || 'Made with SocialLink'"></p>
+                <p v-if="branding.show_footer" class="mini-footer" v-html="branding.footer_text || 'Made with SocialLink'"></p>
               </div>
             </div>
           </div>
@@ -477,6 +549,8 @@ fieldset { border: 1px solid var(--color-border); border-radius: var(--radius-ba
 .group-chip { flex: 0 0 auto; min-height: 40px; padding: 8px 14px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-surface-alt); color: var(--color-text); font-size: .85rem; cursor: pointer; white-space: nowrap; transition: border-color .15s ease, background .15s ease, color .15s ease; }
 .group-chip:hover { border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border)); }
 .group-chip.active { background: var(--color-primary); color: var(--color-primary-contrast); border-color: transparent; }
+.group-chip.ungrouped { border-style: dashed; }
+.group-chip.ungrouped.active { border-style: solid; }
 .group-appearance-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 .group-appearance-actions .btn { align-self: start; }
 .branding-toggles { grid-template-columns: 1fr; }
@@ -510,12 +584,12 @@ fieldset { border: 1px solid var(--color-border); border-radius: var(--radius-ba
 .mini-socials { display: flex; gap: 8px; margin-top: 2px; }
 .mini-socials span { width: 30px; height: 30px; border-radius: var(--radius-social-icon); border: 1px solid var(--color-border); background: color-mix(in srgb, var(--color-surface) 78%, transparent); }
 .mini-meta { margin: 2px 0 0; color: var(--color-text-muted); font-size: .74rem; }
-.mini-links { display: grid; gap: var(--layout-spacing); width: 100%; margin-top: 10px; }
+.mini-links { display: grid; gap: var(--group-spacing, 12px); width: 100%; margin-top: 10px; }
 .mini-links.style-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .mini-link { min-width: 0; max-width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'icon content clicks'; gap: 10px; align-items: center; padding: 11px 13px; border-radius: var(--radius-link); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); box-shadow: var(--button-shadow); transition: transform .2s ease; }
 .mini-links.style-grid .mini-link { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'icon content' 'icon clicks'; gap: 4px 8px; align-items: start; padding: 10px; }
 .mini-link.lift:hover { transform: translateY(-3px); }
-.mini-link.variant-glass { background: color-mix(in srgb, var(--color-surface) 72%, transparent); backdrop-filter: blur(14px); }
+.mini-link.variant-glass { background: color-mix(in srgb, var(--color-surface) var(--glass-opacity, 72%), transparent); backdrop-filter: blur(var(--glass-blur, 18px)); -webkit-backdrop-filter: blur(var(--glass-blur, 18px)); }
 .mini-link.variant-solid { background: var(--color-primary); color: var(--color-primary-contrast); }
 .mini-link.variant-outline { background: transparent; border-color: var(--color-primary); }
 .mini-link.variant-soft { background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface)); }

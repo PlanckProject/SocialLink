@@ -32,15 +32,15 @@ const iconImg = useOptimizedImage(() => props.link.icon_image, { width: 38 })
 </template>
 
 <style scoped>
-.link-card { width: 100%; min-width: 0; min-height: 54px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'icon content clicks'; gap: 14px; align-items: start; padding: 15px 17px; border-radius: var(--radius-link); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--button-shadow); transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+.link-card { width: 100%; min-width: 0; min-height: 54px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'icon content clicks'; gap: 14px; align-items: center; padding: 15px 17px; border-radius: var(--radius-link); border: 1px solid var(--color-border); background: var(--color-surface); box-shadow: var(--button-shadow); transition: transform .2s ease, border-color .2s ease, background .2s ease; }
 .link-card.grid { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'icon content' 'icon clicks'; gap: 5px 10px; align-items: start; padding: 13px; }
 .link-card.lift:hover { transform: translateY(-3px); }
 .link-card:hover { border-color: color-mix(in srgb, var(--color-primary) 60%, var(--color-border)); }
-.variant-glass { background: color-mix(in srgb, var(--color-surface) 72%, transparent); backdrop-filter: blur(18px); }
+.variant-glass { background: color-mix(in srgb, var(--color-surface) var(--glass-opacity, 72%), transparent); backdrop-filter: blur(var(--glass-blur, 18px)); -webkit-backdrop-filter: blur(var(--glass-blur, 18px)); }
 .variant-solid { background: var(--color-primary); color: var(--color-primary-contrast); }
 .variant-outline { background: transparent; border-color: var(--color-primary); }
 .variant-soft { background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface)); }
-.icon { grid-area: icon; display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius-link-icon); background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+.icon { grid-area: icon; display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius-link-icon); background: transparent; }
 .icon.img { background: none; padding: 0; overflow: hidden; }
 .icon.img img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .icon i { font-size: 18px; line-height: 1; }

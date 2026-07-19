@@ -22,6 +22,11 @@ pub mod link_group;
 pub mod person;
 pub mod theme;
 
+/// Shared upper bound (in Unicode scalar values) for free-text fields the
+/// owner edits: profile bio, group description and link description. Keeping a
+/// single constant means every entry point enforces the same limit.
+pub const MAX_TEXT_LEN: usize = 256;
+
 pub use analytics::{
     AnalyticsEvent, AnalyticsOverview, DailyClickCount, DailyCount, DateRange, EventKind,
     LinkAnalytics, RequestMetadata, TopLink,
@@ -29,5 +34,7 @@ pub use analytics::{
 pub use id::EntityId;
 pub use link::{Link, LinkFilter, LinkInput, LinkOrdering};
 pub use link_group::{GroupOrdering, GroupStyle, LinkGroup, LinkGroupInput};
-pub use person::{Person, PersonImageSlot, PersonImageUpdate, PersonProfileUpdate, Social};
+pub use person::{
+    Branding, Person, PersonImageSlot, PersonImageUpdate, PersonProfileUpdate, Social,
+};
 pub use theme::{Theme, ThemeFilter, ThemeSource, ThemeUpdate};

@@ -5,6 +5,7 @@ import { DEFAULT_GROUP_STYLE } from '~/types/social'
 definePageMeta({ middleware: 'auth' })
 const { data: groups, refresh: refreshGroups } = await useAsyncData('admin-groups', () => apiFetch<AdminGroup[]>('/api/admin/groups'))
 const { data: links, refresh: refreshLinks } = await useAsyncData('admin-links', () => apiFetch<AdminLink[]>('/api/admin/links'))
+const { data: profileOrder, refresh: refreshProfileOrder } = await useAsyncData('admin-ungrouped-position', () => apiFetch<{ ungrouped_position: number }>('/api/admin/profile'))
 const linkForm = reactive({ group_id: '', title: '', url: '', description: '', icon: '', icon_image: '', icon_font: '', expires_at: '' })
 const iconType = ref<'none' | 'emoji' | 'image' | 'icon'>('none')
 const editingLink = ref<AdminLink | null>(null)
@@ -16,11 +17,26 @@ const editingGroupId = ref<string | null>(null)
 const editGroupForm = reactive({ title: '', description: '' })
 
 const groupOptions = computed<AdminGroup[]>(() => [{ id: '', title: 'Ungrouped', description: '', collapsible: false, is_active: true, sort_order: -1, style: DEFAULT_GROUP_STYLE }, ...(groups.value || [])])
+const UNGROUPED_BLOCK: AdminGroup = { id: '', title: 'Ungrouped', description: '', collapsible: false, is_active: true, sort_order: -1, style: DEFAULT_GROUP_STYLE }
+// The ordered list of blocks shown/reordered on this page: the named groups
+// with the synthetic "Ungrouped" block spliced in at its saved position.
+const orderedBlocks = computed<AdminGroup[]>(() => {
+  const blocks = [...(groups.value || [])]
+  const index = Math.min(profileOrder.value?.ungrouped_position ?? blocks.length, blocks.length)
+  blocks.splice(index, 0, UNGROUPED_BLOCK)
+  return blocks
+})
 const linksByGroup = (group_id: string | null) => (links.value || []).filter(link => (link.group_id || '') === (group_id || '')).sort((a, b) => a.sort_order - b.sort_order)
 async function reload() { await Promise.all([refreshGroups(), refreshLinks()]) }
 async function createGroup() {
   if (!newGroup.title.trim()) return
-  await apiFetch('/api/admin/groups', { method: 'POST', body: { title: newGroup.title.trim(), description: newGroup.description } })
+  groupError.value = ''
+  try {
+    await apiFetch('/api/admin/groups', { method: 'POST', body: { title: newGroup.title.trim(), description: newGroup.description } })
+  } catch (e: any) {
+    groupError.value = e?.data?.message || 'Could not add group. Please try again.'
+    return
+  }
   Object.assign(newGroup, { title: '', description: '' }); await refreshGroups()
 }
 function startEditGroup(group: AdminGroup) { editingGroupId.value = group.id; Object.assign(editGroupForm, { title: group.title, description: group.description || '' }) }
@@ -45,13 +61,31 @@ function setIconType(type: 'none' | 'emoji' | 'image' | 'icon') {
 }
 function resetLinkForm() { Object.assign(linkForm, { group_id: '', title: '', url: '', description: '', icon: '', icon_image: '', icon_font: '', expires_at: '' }); iconType.value = 'none'; editingLink.value = null; linkError.value = '' }
 function editLink(link: AdminLink) { linkError.value = ''; editingLink.value = link; iconType.value = iconTypeOf(link); Object.assign(linkForm, { group_id: link.group_id || '', title: link.title, url: link.url, description: link.description, icon: link.icon, icon_image: link.icon_image || '', icon_font: link.icon_font || '', expires_at: link.expires_at ? link.expires_at.slice(0, 16) : '' }) }
+const BLOCKED_URL_SCHEMES = ['javascript', 'data', 'vbscript', 'file']
+const OPAQUE_URL_SCHEMES = ['mailto', 'tel', 'sms', 'mms', 'geo', 'maps', 'facetime', 'bitcoin', 'ethereum', 'xmpp', 'irc', 'ircs', 'matrix', 'magnet', 'webcal', 'whatsapp', 'skype', 'callto', 'tg', 'signal']
 function validateLinkUrl(raw: string): { ok: true; url: string } | { ok: false; error: string } {
   const t = (raw || '').trim()
   if (!t) return { ok: false, error: 'Add a URL for this link.' }
-  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(t) ? t : `https://${t}`
+  const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(t)
+  if (schemeMatch) {
+    const scheme = schemeMatch[1].toLowerCase()
+    if (BLOCKED_URL_SCHEMES.includes(scheme)) return { ok: false, error: 'That link type isn’t allowed.' }
+    const rest = t.slice(schemeMatch[0].length)
+    if (scheme === 'http' || scheme === 'https') {
+      let u: URL
+      try { u = new URL(t) } catch { return { ok: false, error: 'Enter a valid URL, e.g. https://example.com' } }
+      if (!u.hostname.includes('.')) return { ok: false, error: 'Enter a valid domain, e.g. https://example.com' }
+      return { ok: true, url: t }
+    }
+    if (rest.startsWith('//') || OPAQUE_URL_SCHEMES.includes(scheme)) {
+      if (!rest.replace(/^\/\//, '').trim()) return { ok: false, error: `Add a target after the ${scheme}: prefix.` }
+      return { ok: true, url: t }
+    }
+    // Not a recognised scheme (e.g. "example.com:8080") — treat as a bare host.
+  }
+  const candidate = `https://${t}`
   let u: URL
   try { u = new URL(candidate) } catch { return { ok: false, error: 'Enter a valid URL, e.g. https://example.com' } }
-  if (u.protocol !== 'https:') return { ok: false, error: 'Links must use https://' }
   if (!u.hostname.includes('.')) return { ok: false, error: 'Enter a valid domain, e.g. https://example.com' }
   return { ok: true, url: candidate }
 }
@@ -100,20 +134,20 @@ async function move(list: AdminLink[], index: number, dir: -1 | 1) {
     linkError.value = 'Could not reorder links. Please try again.'
   }
 }
-async function moveGroup(group: AdminGroup, dir: -1 | 1) {
+async function moveBlock(index: number, dir: -1 | 1) {
   groupError.value = ''
-  const list = [...(groups.value || [])]
-  const index = list.findIndex(g => g.id === group.id)
+  const blocks = orderedBlocks.value
   const target = index + dir
-  if (index < 0 || target < 0 || target >= list.length) return
-  ;[list[index], list[target]] = [list[target], list[index]]
-  const previous = groups.value
-  groups.value = list.map((g, i) => ({ ...g, sort_order: i }))
+  if (index < 0 || target < 0 || target >= blocks.length) return
+  // Send the whole combined order, marking the ungrouped block with the
+  // `ungrouped` token so the backend records both the group order and the
+  // ungrouped block's position in one call.
+  const ids = blocks.map(block => (block.id ? block.id : 'ungrouped'))
+  ;[ids[index], ids[target]] = [ids[target], ids[index]]
   try {
-    await apiFetch('/api/admin/groups/reorder', { method: 'POST', body: { ordered_ids: list.map(g => g.id) } })
-    await refreshGroups()
+    await apiFetch('/api/admin/groups/reorder', { method: 'POST', body: { ordered_ids: ids } })
+    await Promise.all([refreshGroups(), refreshProfileOrder()])
   } catch {
-    groups.value = previous
     groupError.value = 'Could not reorder groups. Please try again.'
   }
 }
@@ -126,9 +160,9 @@ async function moveGroup(group: AdminGroup, dir: -1 | 1) {
       <section class="admin-card form-grid link-form">
         <h2>{{ editingLink ? 'Edit link' : 'New link' }}</h2>
         <label class="form-row">Group<select v-model="linkForm.group_id"><option v-for="group in groupOptions" :key="group.id" :value="group.id">{{ group.title }}</option></select></label>
-        <label class="form-row">Title<input v-model="linkForm.title" placeholder="My latest drop"></label>
+        <label class="form-row">Title<input v-model="linkForm.title" placeholder="My latest drop" maxlength="256"></label>
         <label class="form-row">URL<input v-model="linkForm.url" type="url" inputmode="url" placeholder="https://example.com"></label>
-        <label class="form-row">Description<input v-model="linkForm.description"></label>
+        <label class="form-row">Description<input v-model="linkForm.description" maxlength="256"></label>
         <div class="form-row">
           <span>Icon <small class="muted">(optional — pick one)</small></span>
           <div class="icon-type-tabs">
@@ -167,18 +201,18 @@ async function moveGroup(group: AdminGroup, dir: -1 | 1) {
       <section class="admin-card list-card">
         <h2>Groups &amp; links</h2>
         <form class="group-add" @submit.prevent="createGroup">
-          <input v-model="newGroup.title" class="ga-input" placeholder="New group name" required>
-          <input v-model="newGroup.description" class="ga-input" placeholder="Description (optional)">
+          <input v-model="newGroup.title" class="ga-input" placeholder="New group name" maxlength="256" required>
+          <input v-model="newGroup.description" class="ga-input" placeholder="Description (optional)" maxlength="256">
           <button class="btn primary" type="submit">Add group</button>
         </form>
         <p v-if="groupError" class="form-error">{{ groupError }}</p>
 
-        <div v-for="group in groupOptions" :key="group.id || 'ungrouped'" class="group-block">
+        <div v-for="(group, index) in orderedBlocks" :key="group.id || 'ungrouped'" class="group-block">
           <div class="group-heading">
-            <template v-if="editingGroupId === group.id">
+            <template v-if="editingGroupId === group.id && group.id">
               <div class="group-edit">
-                <input v-model="editGroupForm.title" class="ga-input" placeholder="Group name">
-                <input v-model="editGroupForm.description" class="ga-input" placeholder="Description">
+                <input v-model="editGroupForm.title" class="ga-input" placeholder="Group name" maxlength="256">
+                <input v-model="editGroupForm.description" class="ga-input" placeholder="Description" maxlength="256">
               </div>
               <span class="group-actions">
                 <button class="btn primary" @click="saveEditGroup(group)">Save</button>
@@ -187,11 +221,13 @@ async function moveGroup(group: AdminGroup, dir: -1 | 1) {
             </template>
             <template v-else>
               <h3>{{ group.title }}</h3>
-              <span v-if="group.id" class="group-actions">
-                <button class="btn" title="Move group up" @click="moveGroup(group, -1)">↑</button>
-                <button class="btn" title="Move group down" @click="moveGroup(group, 1)">↓</button>
-                <button class="btn" title="Edit group" @click="startEditGroup(group)">Edit</button>
-                <button class="btn danger" title="Delete group" @click="deleteGroup(group.id)">Delete</button>
+              <span class="group-actions">
+                <button class="btn" title="Move up" :disabled="index === 0" @click="moveBlock(index, -1)">↑</button>
+                <button class="btn" title="Move down" :disabled="index === orderedBlocks.length - 1" @click="moveBlock(index, 1)">↓</button>
+                <template v-if="group.id">
+                  <button class="btn" title="Edit group" @click="startEditGroup(group)">Edit</button>
+                  <button class="btn danger" title="Delete group" @click="deleteGroup(group.id)">Delete</button>
+                </template>
               </span>
             </template>
           </div>

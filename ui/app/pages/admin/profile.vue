@@ -181,7 +181,7 @@ async function upload(kind: 'avatar' | 'cover', event: Event) {
         </p>
       </template>
       <label class="form-row">Display name<input v-model="form.display_name" required></label>
-      <label class="form-row">Bio<textarea v-model="form.bio" maxlength="500" rows="4" /><span class="char-count" :class="{ over: form.bio.length >= 500 }">{{ form.bio.length }}/500</span></label>
+      <label class="form-row">Bio<textarea v-model="form.bio" maxlength="256" rows="4" /><span class="char-count" :class="{ over: form.bio.length >= 256 }">{{ form.bio.length }}/256</span></label>
       <label class="form-row">Location<input v-model="form.location"></label>
       <div class="uploads"><label class="form-row">Avatar<input type="file" accept="image/*" @change="upload('avatar', $event)"><small class="upload-hint">Square image · max 1024×1024</small></label><label class="form-row">Cover<input type="file" accept="image/*" @change="upload('cover', $event)"><small class="upload-hint">Recommended 2:1 ratio · max 2400×1200 (e.g. 1600×800)</small></label></div>
       <div class="social-editor">

@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
-import type { Theme } from '~/app.config'
+import type { Branding, Theme } from '~/app.config'
+import { DEFAULT_BRANDING } from '~/app.config'
 
 type Mode = 'single' | 'multi'
-interface PublicConfig { mode: Mode; features: { registration_enabled: boolean }; theme?: Partial<Theme> }
+interface PublicConfig { mode: Mode; features: { registration_enabled: boolean }; theme?: Partial<Theme>; branding?: Partial<Branding> }
 interface ThemeOverride { key: string; theme: Theme }
+interface BrandingOverride { key: string; branding: Branding }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -23,6 +25,9 @@ export const useConfigStore = defineStore('config', () => {
   const resolvedThemeState = useState<Theme>('resolved-theme', () => deepMerge(appConfig.theme as Theme))
   const themeOverrideState = useState<ThemeOverride | null>('theme-override', () => null)
   const theme = computed(() => themeOverrideState.value?.theme || resolvedThemeState.value)
+  const resolvedBrandingState = useState<Branding>('resolved-branding', () => deepMerge(DEFAULT_BRANDING))
+  const brandingOverrideState = useState<BrandingOverride | null>('branding-override', () => null)
+  const branding = computed(() => brandingOverrideState.value?.branding || resolvedBrandingState.value)
   const mode = useState<Mode>('site-mode', () => 'single')
   const registration_enabled = useState<boolean>('registration-enabled', () => false)
   const loaded = ref(false)
@@ -34,8 +39,12 @@ export const useConfigStore = defineStore('config', () => {
       mode.value = config.mode || 'single'
       registration_enabled.value = !!config.features?.registration_enabled
       resolvedThemeState.value = deepMerge(appConfig.theme as Theme, config.theme as Partial<Theme>)
+      resolvedBrandingState.value = deepMerge(DEFAULT_BRANDING, config.branding as Partial<Branding>)
     } catch {
-      if (!loaded.value) resolvedThemeState.value = deepMerge(appConfig.theme as Theme)
+      if (!loaded.value) {
+        resolvedThemeState.value = deepMerge(appConfig.theme as Theme)
+        resolvedBrandingState.value = deepMerge(DEFAULT_BRANDING)
+      }
     } finally {
       loaded.value = true
     }
@@ -51,15 +60,27 @@ export const useConfigStore = defineStore('config', () => {
     if (themeOverrideState.value?.key === key) themeOverrideState.value = null
   }
 
+  function setBranding(branding: Branding) { resolvedBrandingState.value = deepMerge(DEFAULT_BRANDING, branding) }
+  function setBrandingOverride(key: string, branding: Branding) {
+    brandingOverrideState.value = { key, branding: deepMerge(DEFAULT_BRANDING, branding) }
+  }
+  function clearBrandingOverride(key: string) {
+    if (brandingOverrideState.value?.key === key) brandingOverrideState.value = null
+  }
+
   return {
     mode,
     registration_enabled,
     theme,
+    branding,
     loaded,
     loadPublicConfig,
     reloadPublicConfig,
     setTheme,
     setThemeOverride,
-    clearThemeOverride
+    clearThemeOverride,
+    setBranding,
+    setBrandingOverride,
+    clearBrandingOverride
   }
 })

@@ -27,6 +27,11 @@ pub struct UploadsConfig {
     pub max_mb: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ContentConfig {
+    pub max_groups: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemesConfig {
     pub seed_file: PathBuf,
@@ -45,6 +50,8 @@ pub(super) struct SocialLinkFile {
     admin: AdminSectionRaw,
     uploads: UploadsSectionRaw,
     themes: ThemesSectionRaw,
+    #[serde(default)]
+    content: ContentSectionRaw,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,6 +83,18 @@ struct ThemesSectionRaw {
     max_custom_per_user: usize,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContentSectionRaw {
+    max_groups: usize,
+}
+
+impl Default for ContentSectionRaw {
+    fn default() -> Self {
+        Self { max_groups: 5 }
+    }
+}
+
 // ---------------------------------------------------------------------
 // Validation: raw -> public typed sections
 // ---------------------------------------------------------------------
@@ -85,6 +104,7 @@ pub(super) struct ValidatedSocialLink {
     pub(super) admin: AdminConfig,
     pub(super) uploads: UploadsConfig,
     pub(super) themes: ThemesConfig,
+    pub(super) content: ContentConfig,
 }
 
 impl SocialLinkFile {
@@ -137,6 +157,12 @@ impl SocialLinkFile {
                 "themes.max_custom_per_user must be nonzero",
             ));
         }
+        if self.content.max_groups == 0 {
+            return Err(ConfigError::validation(
+                path,
+                "content.max_groups must be nonzero",
+            ));
+        }
 
         Ok(ValidatedSocialLink {
             application: ApplicationConfig {
@@ -155,6 +181,9 @@ impl SocialLinkFile {
                 seed_file: PathBuf::from(self.themes.seed_file),
                 max_preset_per_user: self.themes.max_preset_per_user,
                 max_custom_per_user: self.themes.max_custom_per_user,
+            },
+            content: ContentConfig {
+                max_groups: self.content.max_groups,
             },
         })
     }

@@ -1,0 +1,4 @@
+services:
+  api:
+    ports:
+      - "3001:3001"

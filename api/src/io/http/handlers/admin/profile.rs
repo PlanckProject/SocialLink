@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::auth::{AuthUser, jwt};
-use crate::domain::{PersonImageSlot, PersonProfileUpdate, Social};
+use crate::domain::{Branding, PersonImageSlot, PersonProfileUpdate, Social};
 use crate::error::{AppError, AppResult};
 use crate::io::http::handlers::common;
 use crate::io::http::handlers::dto::{AdminProfileDto, PublicProfileResponse};
@@ -41,6 +41,8 @@ pub struct UpdateProfilePayload {
     pub location: Option<String>,
     #[serde(default)]
     pub socials: Option<Vec<Social>>,
+    #[serde(default)]
+    pub branding: Option<Branding>,
 }
 
 pub async fn update_profile(
@@ -59,6 +61,8 @@ pub async fn update_profile(
                 bio: payload.bio,
                 location: payload.location,
                 socials: payload.socials,
+                branding: payload.branding,
+                ungrouped_position: None,
             },
         )
         .await?;

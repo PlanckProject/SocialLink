@@ -23,7 +23,7 @@ export function useProfileSeo(data: Ref<PublicProfileResponse | null>) {
   const origin = requestUrl.origin
 
   const profile = computed(() => data.value?.profile || null)
-  const site_name = computed(() => config.theme.branding.site_name || 'SocialLink')
+  const site_name = computed(() => config.branding.site_name || 'SocialLink')
   const title = computed(() => profile.value?.display_name || site_name.value)
   const description = computed(() => {
     const current = profile.value

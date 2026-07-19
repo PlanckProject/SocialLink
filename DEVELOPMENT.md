@@ -291,7 +291,7 @@ uploads:
 
 themes:
   seed_file: /app/theme.json
-  max_preset_per_user: 3
+  max_preset_per_user: 5
   max_custom_per_user: 5
 ```
 

@@ -12,5 +12,10 @@ uploads:
 
 themes:
   seed_file: /app/theme.json
-  max_preset_per_user: 3
+  max_preset_per_user: 5
   max_custom_per_user: 5
+
+# Content limits applied to a profile's links and groups.
+content:
+  # Maximum number of link groups a profile may create.
+  max_groups: 5

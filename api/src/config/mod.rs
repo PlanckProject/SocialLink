@@ -36,7 +36,9 @@ pub use server::{
     LogProvider, LoggingConfig, ServerSection, StorageConfig, StorageProvider, TimeseriesConfig,
     TlsConfig,
 };
-pub use social_link::{AdminConfig, ApplicationConfig, ThemesConfig, UploadsConfig};
+pub use social_link::{
+    AdminConfig, ApplicationConfig, ContentConfig, ThemesConfig, UploadsConfig,
+};
 
 use server::ServerFile;
 use social_link::SocialLinkFile;
@@ -94,6 +96,7 @@ pub struct Config {
     pub admin: AdminConfig,
     pub uploads: UploadsConfig,
     pub themes: ThemesConfig,
+    pub content: ContentConfig,
 }
 
 impl Config {
@@ -138,6 +141,7 @@ impl Config {
             admin: validated_social.admin,
             uploads: validated_social.uploads,
             themes: validated_social.themes,
+            content: validated_social.content,
         })
     }
 }

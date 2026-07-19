@@ -18,7 +18,9 @@ pub async fn get_config(State(state): State<AppState>) -> AppResult<Json<Value>>
         "limits": {
             "max_preset_themes": state.config.themes.max_preset_per_user,
             "max_custom_themes": state.config.themes.max_custom_per_user,
+            "max_groups": state.config.content.max_groups,
         },
+        "branding": user.branding,
         "theme": theme,
     })))
 }

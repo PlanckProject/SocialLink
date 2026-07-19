@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
 
-use crate::domain::{EntityId, GroupOrdering, LinkGroup, LinkGroupInput};
+use crate::domain::{
+    EntityId, GroupOrdering, LinkGroup, LinkGroupInput, MAX_TEXT_LEN, PersonProfileUpdate,
+};
 use crate::error::ErrorKind;
-use crate::providers::database::{Database, LinkGroupRepository, LinkRepository};
+use crate::providers::database::{Database, LinkGroupRepository, LinkRepository, PersonRepository};
 
 use super::{AppServices, cache_keys};
 
@@ -43,7 +45,23 @@ impl AppServices {
         &self,
         user_id: EntityId,
         input: LinkGroupInput,
+        max_groups: usize,
     ) -> Result<LinkGroup> {
+        validate_group_input(&input)?;
+
+        let count = self
+            .database
+            .groups()
+            .count(user_id)
+            .await
+            .context("count groups")?;
+        if count as usize >= max_groups {
+            return Err(ErrorKind::Conflict(format!(
+                "group limit reached: at most {max_groups} groups are allowed"
+            ))
+            .into());
+        }
+
         let group = self
             .database
             .groups()
@@ -61,6 +79,8 @@ impl AppServices {
         id: EntityId,
         input: LinkGroupInput,
     ) -> Result<LinkGroup> {
+        validate_group_input(&input)?;
+
         let group = self
             .database
             .groups()
@@ -107,7 +127,17 @@ impl AppServices {
         unassign_result
     }
 
-    pub async fn reorder_groups(&self, user_id: EntityId, ordering: GroupOrdering) -> Result<()> {
+    /// Reorders the owner's named groups. When `ungrouped_position` is
+    /// `Some`, it also persists where the synthetic "Ungrouped" block sits
+    /// among them (its insertion index in the combined ordering). `None`
+    /// leaves the stored ungrouped position untouched (e.g. legacy clients
+    /// that only send group ids).
+    pub async fn reorder_groups(
+        &self,
+        user_id: EntityId,
+        ordering: GroupOrdering,
+        ungrouped_position: Option<i32>,
+    ) -> Result<()> {
         self.database
             .groups()
             .reorder(user_id, &ordering)
@@ -115,6 +145,27 @@ impl AppServices {
             .context("reorder groups")?;
 
         self.invalidate_group_change(user_id, &[]).await;
+
+        if let Some(position) = ungrouped_position {
+            let update = PersonProfileUpdate {
+                ungrouped_position: Some(position),
+                ..Default::default()
+            };
+            if let Some(person) = self
+                .database
+                .people()
+                .update_profile(user_id, &update)
+                .await
+                .context("persist ungrouped block position")?
+            {
+                self.cache
+                    .invalidate(&cache_keys::person_invalidation(
+                        person.id,
+                        &[person.username.as_str()],
+                    ))
+                    .await;
+            }
+        }
         Ok(())
     }
 
@@ -130,4 +181,26 @@ impl AppServices {
 
 fn group_not_found() -> anyhow::Error {
     ErrorKind::NotFound("group not found".to_string()).into()
+}
+
+fn validate_group_input(input: &LinkGroupInput) -> Result<()> {
+    let title = input.title.trim();
+    if title.is_empty() {
+        return Err(ErrorKind::BadRequest("group title must not be empty".into()).into());
+    }
+    if title.chars().count() > MAX_TEXT_LEN {
+        return Err(ErrorKind::BadRequest(format!(
+            "group title must be at most {MAX_TEXT_LEN} characters"
+        ))
+        .into());
+    }
+    if let Some(description) = &input.description
+        && description.chars().count() > MAX_TEXT_LEN
+    {
+        return Err(ErrorKind::BadRequest(format!(
+            "group description must be at most {MAX_TEXT_LEN} characters"
+        ))
+        .into());
+    }
+    Ok(())
 }

@@ -131,11 +131,22 @@ pub async fn build_public_profile(
         })
         .collect();
 
+    // Clamp the stored insertion index to the current group count so a large
+    // sentinel (or a stale index after groups were deleted) renders last.
+    let ungrouped_position = public
+        .base
+        .person
+        .ungrouped_position
+        .max(0)
+        .min(public.base.groups.len() as i32) as usize;
+
     Ok(PublicProfileResponse {
         profile: ProfileDto::from_model(&public.base.person),
         groups,
         ungrouped,
+        ungrouped_position,
         stats: public.views.map(|views| StatsDto { views }),
         theme: public.base.theme,
+        branding: public.base.person.branding.clone(),
     })
 }

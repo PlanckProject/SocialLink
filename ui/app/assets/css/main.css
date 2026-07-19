@@ -11,8 +11,8 @@
   --color-border: rgba(255,255,255,0.08);
   --font-heading: 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
-  --radius-link: 22px;
-  --radius-link-icon: 14px;
+  --radius-link: 999px;
+  --radius-link-icon: 999px;
   --radius-background: 20px;
   --radius-avatar: 999px;
   --radius-social-icon: 999px;
@@ -29,6 +29,8 @@
   --background-gradient: linear-gradient(160deg,#1e1b4b 0%,#0b0b0f 60%);
   --background-image: none;
   --background-overlay: rgba(0,0,0,0.35);
+  --glass-opacity: 72%;
+  --glass-blur: 18px;
 }
 }
 
@@ -62,6 +64,25 @@ input, textarea, select { width: 100%; color: var(--color-text); background: var
 textarea { min-height: 110px; resize: vertical; }
 .error { color: #fecaca; background: rgba(220,38,38,.16); border: 1px solid rgba(248,113,113,.28); padding: 10px 12px; border-radius: var(--radius-background); }
 .success { color: #bbf7d0; background: rgba(22,163,74,.14); border: 1px solid rgba(74,222,128,.25); padding: 10px 12px; border-radius: var(--radius-background); }
+
+/* Full-UI glass: translucent panels stack, so the background blur compounds as
+   .admin-card > fieldset > input each apply their own backdrop-filter. */
+html[data-ui-glass='on'] .surface,
+html[data-ui-glass='on'] .admin-card,
+html[data-ui-glass='on'] fieldset {
+  background: color-mix(in srgb, var(--color-surface) var(--glass-opacity, 72%), transparent);
+  backdrop-filter: blur(var(--glass-blur, 18px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 18px));
+}
+html[data-ui-glass='on'] input,
+html[data-ui-glass='on'] textarea,
+html[data-ui-glass='on'] select,
+html[data-ui-glass='on'] .btn.ghost,
+html[data-ui-glass='on'] .admin-nav a:not(.router-link-active) {
+  background: color-mix(in srgb, var(--color-surface-alt) var(--glass-opacity, 72%), transparent);
+  backdrop-filter: blur(var(--glass-blur, 18px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 18px));
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .001ms !important; }

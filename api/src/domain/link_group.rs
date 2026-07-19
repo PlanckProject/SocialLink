@@ -15,8 +15,17 @@ pub enum GroupLayout {
     Grid,
 }
 
+/// Horizontal alignment of a group's title/description header.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GroupTitleAlign {
+    #[default]
+    Left,
+    Center,
+}
+
 fn default_link_radius() -> String {
-    "22%".to_string()
+    "50%".to_string()
 }
 
 fn default_icon_radius() -> String {
@@ -28,12 +37,12 @@ fn default_group_spacing() -> String {
 }
 
 /// Per-group appearance. The group owns how its links look — the layout, the
-/// corner roundness of the link cards and their icon badges, and the spacing
-/// between links — so every link in a group looks consistent, while
-/// colors/text remain theme-owned. `link_radius`/`icon_radius` are
-/// percent-like strings (0–50; `>=50` renders as a pill/circle) mirroring the
-/// theme radii; `spacing` is any CSS length. Defaults are list + 22% + 50% +
-/// 12px.
+/// corner roundness of the link cards and their icon badges, the spacing
+/// between links, and how its title is aligned — so every link in a group
+/// looks consistent, while colors/text remain theme-owned.
+/// `link_radius`/`icon_radius` are percent-like strings (0–50; `>=50` renders
+/// as a pill/circle) mirroring the theme radii; `spacing` is any CSS length.
+/// Defaults are list + 50% + 50% + 12px + left-aligned title.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GroupStyle {
     #[serde(default)]
@@ -44,6 +53,8 @@ pub struct GroupStyle {
     pub icon_radius: String,
     #[serde(default = "default_group_spacing")]
     pub spacing: String,
+    #[serde(default)]
+    pub title_align: GroupTitleAlign,
 }
 
 impl Default for GroupStyle {
@@ -53,6 +64,7 @@ impl Default for GroupStyle {
             link_radius: default_link_radius(),
             icon_radius: default_icon_radius(),
             spacing: default_group_spacing(),
+            title_align: GroupTitleAlign::default(),
         }
     }
 }
@@ -134,9 +146,10 @@ mod tests {
     fn new_defaults_style_to_list_defaults() {
         let group = LinkGroup::new(EntityId::new(), "Shopping", 0);
         assert_eq!(group.style.layout, GroupLayout::List);
-        assert_eq!(group.style.link_radius, "22%");
+        assert_eq!(group.style.link_radius, "50%");
         assert_eq!(group.style.icon_radius, "50%");
         assert_eq!(group.style.spacing, "12px");
+        assert_eq!(group.style.title_align, GroupTitleAlign::Left);
     }
 
     #[test]
@@ -146,12 +159,14 @@ mod tests {
             link_radius: "10%".to_string(),
             icon_radius: "0%".to_string(),
             spacing: "20px".to_string(),
+            title_align: GroupTitleAlign::Center,
         };
         let json = serde_json::to_value(style).expect("serialize");
         assert_eq!(json["layout"], "grid");
         assert_eq!(json["link_radius"], "10%");
         assert_eq!(json["icon_radius"], "0%");
         assert_eq!(json["spacing"], "20px");
+        assert_eq!(json["title_align"], "center");
     }
 
     #[test]
@@ -159,8 +174,9 @@ mod tests {
         let style: GroupStyle =
             serde_json::from_str(r#"{"layout":"grid"}"#).expect("deserialize");
         assert_eq!(style.layout, GroupLayout::Grid);
-        assert_eq!(style.link_radius, "22%");
+        assert_eq!(style.link_radius, "50%");
         assert_eq!(style.icon_radius, "50%");
         assert_eq!(style.spacing, "12px");
+        assert_eq!(style.title_align, GroupTitleAlign::Left);
     }
 }

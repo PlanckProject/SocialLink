@@ -7,8 +7,8 @@ use serde_json::Value;
 
 use crate::auth::password;
 use crate::domain::{
-    EntityId, Link, LinkGroup, Person, PersonImageSlot, PersonImageUpdate, PersonProfileUpdate,
-    Theme, ThemeSource,
+    EntityId, Link, LinkGroup, MAX_TEXT_LEN, Person, PersonImageSlot, PersonImageUpdate,
+    PersonProfileUpdate, Theme, ThemeSource,
 };
 use crate::error::ErrorKind;
 use crate::providers::database::{Database, PersonRepository, ThemeRepository};
@@ -19,7 +19,7 @@ use super::AppServices;
 use super::cache_keys;
 use super::media::MediaKind;
 
-const MAX_BIO_LEN: usize = 500;
+const MAX_BIO_LEN: usize = MAX_TEXT_LEN;
 
 #[derive(Debug, Clone)]
 pub struct RegisterPerson {

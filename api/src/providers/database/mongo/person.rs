@@ -9,10 +9,17 @@ use mongodb::{Collection, Database as MongoDb, IndexModel};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{
-    EntityId, Person, PersonImageSlot, PersonImageUpdate, PersonProfileUpdate, Social,
+    Branding, EntityId, Person, PersonImageSlot, PersonImageUpdate, PersonProfileUpdate, Social,
 };
 
 use crate::providers::database::traits::PersonRepository;
+
+/// Local default for a record that predates the `ungrouped_position` field.
+/// Mirrors [`crate::domain::person::default_ungrouped_position`]; kept local so
+/// the persistence layer owns its own serde defaults.
+fn default_ungrouped_position() -> i32 {
+    i32::MAX
+}
 
 /// Persistence record for [`Person`]. Mirrors the domain type field for
 /// field, except timestamps go through bson's chrono helpers so they are
@@ -35,6 +42,10 @@ struct PersonRecord {
     avatar_path: Option<String>,
     #[serde(default)]
     cover_path: Option<String>,
+    #[serde(default)]
+    branding: Branding,
+    #[serde(default = "default_ungrouped_position")]
+    ungrouped_position: i32,
     #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     created_at: DateTime<Utc>,
     #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
@@ -54,6 +65,8 @@ impl From<&Person> for PersonRecord {
             socials: person.socials.clone(),
             avatar_path: person.avatar_path.clone(),
             cover_path: person.cover_path.clone(),
+            branding: person.branding.clone(),
+            ungrouped_position: person.ungrouped_position,
             created_at: person.created_at,
             updated_at: person.updated_at,
         }
@@ -73,6 +86,8 @@ impl From<PersonRecord> for Person {
             socials: record.socials,
             avatar_path: record.avatar_path,
             cover_path: record.cover_path,
+            branding: record.branding,
+            ungrouped_position: record.ungrouped_position,
             created_at: record.created_at,
             updated_at: record.updated_at,
         }
@@ -219,6 +234,15 @@ impl PersonRepository for MongoPersonRepository {
                 "socials",
                 bson::to_bson(socials).context("serialize socials")?,
             );
+        }
+        if let Some(branding) = &update.branding {
+            set.insert(
+                "branding",
+                bson::to_bson(branding).context("serialize branding")?,
+            );
+        }
+        if let Some(position) = update.ungrouped_position {
+            set.insert("ungrouped_position", position);
         }
         set.insert("updated_at", bson::DateTime::from_chrono(Utc::now()));
 

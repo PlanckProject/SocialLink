@@ -3,14 +3,32 @@ import type { PublicProfileResponse } from '~/types/social'
 
 const props = defineProps<{ data: PublicProfileResponse; preview?: boolean }>()
 const config = useConfigStore()
+
+// Render groups with the synthetic "Ungrouped" block spliced in at the
+// owner-chosen index (clamped by the backend). When empty it's omitted.
+const orderedBlocks = computed(() => {
+  const blocks = props.data.groups.map(group => ({ kind: 'group' as const, key: group.id, group }))
+  if (props.data.ungrouped?.length) {
+    const index = Math.min(props.data.ungrouped_position ?? blocks.length, blocks.length)
+    blocks.splice(index, 0, { kind: 'ungrouped' as const, key: 'ungrouped', group: undefined as never })
+  }
+  return blocks
+})
 let themeOverrideKey = ''
 watchEffect(() => {
   const nextKey = `profile:${props.data.profile.username}`
-  if (themeOverrideKey && themeOverrideKey !== nextKey) config.clearThemeOverride(themeOverrideKey)
+  if (themeOverrideKey && themeOverrideKey !== nextKey) {
+    config.clearThemeOverride(themeOverrideKey)
+    config.clearBrandingOverride(themeOverrideKey)
+  }
   themeOverrideKey = nextKey
   config.setThemeOverride(themeOverrideKey, props.data.theme)
+  if (props.data.branding) config.setBrandingOverride(themeOverrideKey, props.data.branding)
 })
-onUnmounted(() => config.clearThemeOverride(themeOverrideKey))
+onUnmounted(() => {
+  config.clearThemeOverride(themeOverrideKey)
+  config.clearBrandingOverride(themeOverrideKey)
+})
 useProfileSeo(computed(() => props.data))
 </script>
 
@@ -20,12 +38,14 @@ useProfileSeo(computed(() => props.data))
     <div class="container profile-shell">
       <ProfileHeader :profile="data.profile" :views="data.stats?.views" />
       <div class="link-stack">
-        <LinkGroup v-for="group in data.groups" :key="group.id" :group="group" :links="group.links" :preview="preview" />
-        <LinkGroup v-if="data.ungrouped?.length" :links="data.ungrouped" :preview="preview" />
+        <template v-for="block in orderedBlocks" :key="block.key">
+          <LinkGroup v-if="block.kind === 'group'" :group="block.group" :links="block.group.links" :preview="preview" />
+          <LinkGroup v-else :links="data.ungrouped" :style-override="config.theme.ungrouped" :preview="preview" />
+        </template>
       </div>
       <!-- footer_text is owner-controlled branding rendered as HTML so it can
            contain a themed link (e.g. the default "Made with SocialLink"). -->
-      <footer v-if="config.theme.branding.show_footer" class="footer" v-html="config.theme.branding.footer_text"></footer>
+      <footer v-if="config.branding.show_footer" class="footer" v-html="config.branding.footer_text"></footer>
     </div>
   </main>
 </template>

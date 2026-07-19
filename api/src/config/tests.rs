@@ -98,6 +98,9 @@ themes:
   seed_file: /app/theme.json
   max_preset_per_user: 3
   max_custom_per_user: 5
+
+content:
+  max_groups: 5
 "#;
 
 fn write_config(root: &Path, env: &str, server_yaml: &str, social_yaml: &str) {
@@ -163,6 +166,7 @@ fn loads_valid_config_for_default_env_path() {
     );
     assert_eq!(config.application.mode, AppMode::Single);
     assert!(!config.application.mode.is_multi());
+    assert_eq!(config.content.max_groups, 5);
 
     clear_secrets();
     fs::remove_dir_all(&root).ok();

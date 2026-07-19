@@ -90,6 +90,8 @@ export function themeToCssVars(theme: Theme) {
     '--layout-align': theme.layout.align,
     '--cover-height': theme.layout.cover_height,
     '--button-shadow': theme.button.shadow,
+    '--glass-opacity': `${clamp(finite(theme.effects?.glass_opacity, 72), 0, 100)}%`,
+    '--glass-blur': `${clamp(finite(theme.effects?.glass_blur, 18), 0, 80)}px`,
     '--background-value': theme.background.value,
     '--background-gradient': theme.background.type === 'gradient' ? theme.background.gradient : `linear-gradient(${theme.background.value}, ${theme.background.value})`,
     '--background-image': theme.background.type === 'image' && theme.background.image ? `url(${theme.background.image})` : 'none',
@@ -115,8 +117,9 @@ export function useTheme(themeOverride?: Ref<Theme> | ComputedRef<Theme>) {
   })))
 
   useHead(() => ({
-    titleTemplate: title => title ? `${title} · ${theme.value.branding.site_name}` : theme.value.branding.site_name,
-    link: [{ rel: 'icon', href: theme.value.branding.favicon }, ...fontLinks.value],
+    htmlAttrs: { 'data-ui-glass': theme.value.effects?.glass ? 'on' : 'off' },
+    titleTemplate: title => title ? `${title} · ${configStore.branding.site_name}` : configStore.branding.site_name,
+    link: [{ rel: 'icon', href: configStore.branding.favicon }, ...fontLinks.value],
     style: [{ key: 'theme-vars', innerHTML: `:root{${varsToStyle(cssVars.value)}}` }]
   }))
 

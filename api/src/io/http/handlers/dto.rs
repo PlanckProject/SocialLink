@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::domain::{GroupStyle, Link, LinkGroup, Person};
+use crate::domain::{Branding, GroupStyle, Link, LinkGroup, Person};
 use crate::util::utc_to_iso;
 
 #[derive(Serialize)]
@@ -95,9 +95,13 @@ pub struct PublicProfileResponse {
     pub profile: ProfileDto,
     pub groups: Vec<PublicGroupDto>,
     pub ungrouped: Vec<PublicLinkDto>,
+    /// Insertion index for the ungrouped block among `groups` (clamped to
+    /// `groups.len()`), so the client renders it at the owner-chosen position.
+    pub ungrouped_position: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stats: Option<StatsDto>,
     pub theme: Value,
+    pub branding: Branding,
 }
 
 #[derive(Serialize)]
@@ -110,6 +114,8 @@ pub struct AdminProfileDto {
     pub socials: Vec<SocialDto>,
     pub avatar_url: Option<String>,
     pub cover_url: Option<String>,
+    pub branding: Branding,
+    pub ungrouped_position: i32,
 }
 
 impl AdminProfileDto {
@@ -130,6 +136,8 @@ impl AdminProfileDto {
                 .collect(),
             avatar_url: p.avatar_path.clone(),
             cover_url: p.cover_path.clone(),
+            branding: p.branding.clone(),
+            ungrouped_position: p.ungrouped_position,
         }
     }
 }

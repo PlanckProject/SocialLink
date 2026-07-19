@@ -14,6 +14,39 @@ pub struct Social {
     pub url: String,
 }
 
+/// Site-identity branding owned by the page owner (the profile), *not* by the
+/// theme. Keeping it on the `Person` means switching or applying themes never
+/// changes the site name, logo, favicon or footer. Edited on the Appearance
+/// page but persisted through the profile.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Branding {
+    pub site_name: String,
+    #[serde(default)]
+    pub logo: Option<String>,
+    pub favicon: String,
+    pub footer_text: String,
+    pub show_footer: bool,
+}
+
+impl Default for Branding {
+    fn default() -> Self {
+        Self {
+            site_name: "SocialLink".to_string(),
+            logo: None,
+            favicon: "/favicon.ico".to_string(),
+            footer_text: "Made with <a href=\"https://github.com/PlanckProject/SocialLink\" target=\"_blank\" rel=\"noopener noreferrer\">SocialLink</a>".to_string(),
+            show_footer: true,
+        }
+    }
+}
+
+/// Default position for the synthetic "Ungrouped" link block: a large sentinel
+/// so that both existing profiles (which predate the field) and new ones render
+/// it after all named groups until the owner explicitly reorders it.
+pub(crate) fn default_ungrouped_position() -> i32 {
+    i32::MAX
+}
+
 /// A user / page owner. In `single` mode there is exactly one seeded person.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Person {
@@ -32,6 +65,13 @@ pub struct Person {
     pub avatar_path: Option<String>,
     #[serde(default)]
     pub cover_path: Option<String>,
+    #[serde(default)]
+    pub branding: Branding,
+    /// Insertion index of the synthetic "Ungrouped" link block among the
+    /// owner's named groups on the public page. Profile-owned (survives theme
+    /// changes); defaults to [`i32::MAX`] so it renders last until reordered.
+    #[serde(default = "default_ungrouped_position")]
+    pub ungrouped_position: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -57,6 +97,8 @@ impl Person {
             socials: Vec::new(),
             avatar_path: None,
             cover_path: None,
+            branding: Branding::default(),
+            ungrouped_position: default_ungrouped_position(),
             created_at: now,
             updated_at: now,
         }
@@ -78,6 +120,10 @@ pub struct PersonProfileUpdate {
     pub location: Option<String>,
     #[serde(default)]
     pub socials: Option<Vec<Social>>,
+    #[serde(default)]
+    pub branding: Option<Branding>,
+    #[serde(default)]
+    pub ungrouped_position: Option<i32>,
 }
 
 /// Which stored image field an upload should replace.

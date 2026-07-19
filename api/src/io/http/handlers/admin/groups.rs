@@ -51,7 +51,11 @@ pub async fn create_group(
 ) -> AppResult<Json<AdminGroupDto>> {
     let group = state
         .services
-        .create_group(user.user_id, payload.into())
+        .create_group(
+            user.user_id,
+            payload.into(),
+            state.config.content.max_groups,
+        )
         .await?;
     Ok(Json(AdminGroupDto::from_model(&group)))
 }
@@ -61,16 +65,23 @@ pub async fn reorder_groups(
     user: AuthUser,
     Json(payload): Json<ReorderGroupsPayload>,
 ) -> AppResult<Json<Value>> {
-    let ordering = GroupOrdering {
-        ordered_ids: payload
-            .ordered_ids
-            .iter()
-            .map(|id| parse_id(id, "group"))
-            .collect::<AppResult<_>>()?,
-    };
+    // The client sends the combined block order, using the literal token
+    // `"ungrouped"` to mark where the synthetic ungrouped block sits. We split
+    // that out: real group ids define the group ordering, and the token's index
+    // becomes the persisted ungrouped position.
+    let mut ordered_ids = Vec::new();
+    let mut ungrouped_position = None;
+    for (index, id) in payload.ordered_ids.iter().enumerate() {
+        if id == "ungrouped" {
+            ungrouped_position = Some(index as i32);
+        } else {
+            ordered_ids.push(parse_id(id, "group")?);
+        }
+    }
+    let ordering = GroupOrdering { ordered_ids };
     state
         .services
-        .reorder_groups(user.user_id, ordering)
+        .reorder_groups(user.user_id, ordering, ungrouped_position)
         .await?;
     Ok(Json(json!({ "ok": true })))
 }
